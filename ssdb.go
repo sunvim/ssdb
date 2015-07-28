@@ -1,7 +1,14 @@
+/*
+	author: sunsc
+	time: 2015-07-29
+	positon:ShangHai
+	License: MIT
+*/
 package ssdb
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net"
 	"strconv"
@@ -25,74 +32,35 @@ func ClosePool() {
 	pool.Close()
 }
 
-func (c *Client) GetConn() *Client {
-	if c.sock != nil {
+func (this *Client) GetConn() *Client {
+	if this.sock != nil {
 		// fmt.Println("had a connect,don't again!")
-		return c
+		return this
 	}
 	var err error
-	c.sock, err = pool.Get()
+	this.sock, err = pool.Get()
 	if err != nil {
 		fmt.Println(err)
 	}
 	// fmt.Println("first get connect!")
 	// fmt.Println("current pool num=>", pool.Len())
-	return c
+	return this
 }
 
-func (c *Client) Do(args ...interface{}) ([]string, error) {
-	err := c.send(args)
+func (this *Client) Do(args ...interface{}) ([]string, error) {
+	err := this.send(args)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.recv()
+	resp, err := this.recv()
 	return resp, err
 }
 
-func (c *Client) Set(key string, val string) (interface{}, error) {
-	resp, err := c.Do("set", key, val)
-	if err != nil {
-		return nil, err
-	}
-	if len(resp) == 2 && resp[0] == "ok" {
-		return true, nil
-	}
-	return nil, fmt.Errorf("bad response")
+func (this *Client) Send(args ...interface{}) error {
+	return this.send(args)
 }
 
-// TODO: Will somebody write addition semantic methods?
-func (c *Client) Get(key string) (interface{}, error) {
-	resp, err := c.Do("get", key)
-	if err != nil {
-		return nil, err
-	}
-	if len(resp) == 2 && resp[0] == "ok" {
-		return resp[1], nil
-	}
-	if resp[0] == "not_found" {
-		return nil, nil
-	}
-	return nil, fmt.Errorf("bad response")
-}
-
-func (c *Client) Del(key string) (interface{}, error) {
-	resp, err := c.Do("del", key)
-	if err != nil {
-		return nil, err
-	}
-
-	//response looks like this: [ok 1]
-	if len(resp) > 0 && resp[0] == "ok" {
-		return true, nil
-	}
-	return nil, fmt.Errorf("bad response:resp:%v:", resp)
-}
-
-func (c *Client) Send(args ...interface{}) error {
-	return c.send(args)
-}
-
-func (c *Client) send(args []interface{}) error {
+func (this *Client) send(args []interface{}) error {
 	var buf bytes.Buffer
 	for _, arg := range args {
 		var s string
@@ -132,32 +100,32 @@ func (c *Client) send(args []interface{}) error {
 		buf.WriteByte('\n')
 	}
 	buf.WriteByte('\n')
-	_, err := c.sock.Write(buf.Bytes())
+	_, err := this.sock.Write(buf.Bytes())
 	return err
 }
 
-func (c *Client) Recv() ([]string, error) {
-	return c.recv()
+func (this *Client) Recv() ([]string, error) {
+	return this.recv()
 }
 
-func (c *Client) recv() ([]string, error) {
+func (this *Client) recv() ([]string, error) {
 	var tmp [8192]byte
 	for {
-		resp := c.parse()
+		resp := this.parse()
 		if resp == nil || len(resp) > 0 {
 			return resp, nil
 		}
-		n, err := c.sock.Read(tmp[0:])
+		n, err := this.sock.Read(tmp[0:])
 		if err != nil {
 			return nil, err
 		}
-		c.recv_buf.Write(tmp[0:n])
+		this.recv_buf.Write(tmp[0:n])
 	}
 }
 
-func (c *Client) parse() []string {
+func (this *Client) parse() []string {
 	resp := []string{}
-	buf := c.recv_buf.Bytes()
+	buf := this.recv_buf.Bytes()
 	var idx, offset int
 	idx = 0
 	offset = 0
@@ -174,7 +142,7 @@ func (c *Client) parse() []string {
 			if len(resp) == 0 {
 				continue
 			} else {
-				c.recv_buf.Next(offset)
+				this.recv_buf.Next(offset)
 				return resp
 			}
 		}
@@ -183,7 +151,7 @@ func (c *Client) parse() []string {
 		if err != nil || size < 0 {
 			return nil
 		}
-		if offset+size >= c.recv_buf.Len() {
+		if offset+size >= this.recv_buf.Len() {
 			break
 		}
 
@@ -197,8 +165,34 @@ func (c *Client) parse() []string {
 }
 
 // Close The Client Connection
-func (c *Client) Close() error {
-	err := c.sock.Close()
-	c.sock = nil
+func (this *Client) Close() error {
+	err := this.sock.Close()
+	this.sock = nil
 	return err
+}
+
+//encoding value for ssdb
+func (this *Client) encoding(value interface{}) string {
+	switch t := value.(type) {
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, complex64, complex128:
+		return String(t)
+	case string: //byte==uint8
+		return t
+	case []byte:
+		return string(t)
+	case bool:
+		if t {
+			return "1"
+		} else {
+			return "0"
+		}
+	case nil:
+		return ""
+	default:
+		if bs, err := json.Marshal(value); err == nil {
+			return string(bs)
+		} else {
+			return "encoding value failed"
+		}
+	}
 }

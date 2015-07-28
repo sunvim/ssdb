@@ -6,10 +6,7 @@
 */
 package ssdb
 
-import (
-	"github.com/sunvim/spool"
+const (
+	RET_OK    = "ok"
+	NOT_FOUND = "not_found"
 )
-
-type Pool interface {
-	spool.Pool
-}
