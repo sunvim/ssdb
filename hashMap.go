@@ -40,14 +40,14 @@ func (this *Client) Hdel(setName, key string) (err error) {
 	return makeError(resp, setName, key)
 }
 
-func (this *Client) Hexists(setName, key string) (re bool, err error) {
+func (this *Client) Hexists(setName, key string) (bool, error) {
 	resp, err := this.Do("hexists", setName, key)
 	if err != nil {
 		return false, NewError(err, "Hexists %s/%s error", setName, key)
 	}
 
 	if len(resp) == 2 && resp[0] == "ok" {
-		return resp[1] == "1", nil
+		return Value(resp[1]).Bool(), nil
 	}
 	return false, makeError(resp, setName, key)
 }
@@ -64,7 +64,7 @@ func (this *Client) Hclear(setName string) (err error) {
 	return makeError(resp, setName)
 }
 
-func (this *Client) Hkeys(setName, key_start, key_end string, limit int) ([]Value, error) {
+func (this *Client) Hkeys(setName, key_start, key_end interface{}, limit int) ([]Value, error) {
 	var val []Value
 	resp, err := this.Do("hkeys", setName, key_start, key_end, limit)
 	if err != nil {
@@ -91,4 +91,22 @@ func (this *Client) Hsize(setName string) (int, error) {
 		return ret, nil
 	}
 	return ret, makeError(resp, setName)
+}
+
+func (this *Client) Hincr(setName, key string, val ...int) (interface{}, error) {
+	var num int
+	if val == nil {
+		num = 1
+	} else {
+		num = val[0]
+	}
+	resp, err := this.Do("hincr", setName, key, num)
+	if err != nil {
+		return false, NewError(err, "hincr %s/%s error", setName, key)
+	}
+
+	if len(resp) == 2 && resp[0] == "ok" {
+		return Value(resp[1]).Int(), nil
+	}
+	return false, makeError(resp, setName, key)
 }

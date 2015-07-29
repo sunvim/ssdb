@@ -415,8 +415,6 @@ func String(val interface{}) string {
 	return string(buf)
 }
 
-/*
-// Lets wait until Go 1.1
 func List(val interface{}) []interface{} {
 	list := []interface{}{}
 
@@ -442,7 +440,6 @@ func List(val interface{}) []interface{} {
 	return list
 }
 
-// Lets wait until Go 1.1
 func Map(val interface{}) map[string]interface{} {
 
 	list := map[string]interface{}{}
@@ -466,7 +463,6 @@ func Map(val interface{}) map[string]interface{} {
 
 	return list
 }
-*/
 
 /*
 	Tries to convert the argument into an int64. Returns int64(0) if any error
